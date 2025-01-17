@@ -2,6 +2,8 @@ import argparse
 import datetime
 import logging
 import os
+import re
+import typing
 
 import anthropic
 import openai
@@ -18,13 +20,22 @@ CLASSIFY_PROMPT = """\
 <instructions>
 Analyze this text and classify it as one of the following categories:
 
+    - Changelog
+    - Compliance Documentation
+    - Employee Benefits Documentation
+    - Employee Handbook
+    - How-To Documentation
+    - Job Description
+    - Job Responsibilities
     - Meeting Notes
-    - Project Documentation
     - Operational Event
+    - Operational Plan
+    - Organizational Plan
+    - Policy Documentation
+    - Project Documentation
     - Technical Documentation
     - User Documentation
-    - Policy Documentation
-    - Changelog
+    - Vendor Information
     - Other
 
 Do not return anything other than the category.
@@ -47,11 +58,14 @@ class Indexer:
                  cutoff: datetime.datetime,
                  spaces: list[str],
                  ignore_classifications: list[str],
+                 ignore_pattern: typing.Optional[str],
                  skip: int):
         self.confluence = confluence.Client(
             confluence_domain, confluence_email, confluence_api_key)
         self.cuttoff = cutoff
         self.ignore_classifications = ignore_classifications
+        self.ignore_pattern = \
+            re.compile(ignore_pattern) if ignore_pattern else None
         self.openai = openai.Client(api_key=openai_api_key)
         self.rag = pgvector_rag.RAG(
             anthropic_api_key, openai_api_key, postgres_url)
@@ -66,9 +80,14 @@ class Indexer:
                 if count <= self.skip:
                     LOGGER.info('Skipping "%s"', document.title)
                     continue
+                if self.ignore_pattern and \
+                        self.ignore_pattern.search(document.title):
+                    LOGGER.info('Ignoring "%s"', document.title)
+                    continue
                 for ignore in self.ignore_classifications:
                     if ignore in document.title:
-                        LOGGER.info('Skipping "%s"', document.title)
+                        LOGGER.info('Ignoring "%s" due to classification',
+                                    document.title)
                         continue
                 try:
                     response = self.openai.chat.completions.create(
@@ -84,19 +103,17 @@ class Indexer:
                     LOGGER.error('Error classifying document: %s', err)
                     category = 'Other'
                 else:
-                    category = response.choices[0].message.content
+                    document.classification = \
+                        str(response.choices[0].message.content)
 
-                if category in self.ignore_classifications:
-                    LOGGER.info('Ignoring "%s": %s', document.title, category)
+                if document.classification in self.ignore_classifications:
+                    LOGGER.info('Ignoring "%s": %s',
+                                document.title, document.classification)
                     continue
 
                 LOGGER.info('Classified "%s" as "%s"',
-                            document.title, category)
-                document.content = str(response.choices[0].message.content)
-
+                            document.title, document.classification)
                 self.rag.add_document(document)
-                LOGGER.debug(document.content)
-
 
 def valid_date(date_str: str) -> datetime.datetime:
     """Validate and convert a date or timestamp string to a datetime object.
@@ -145,8 +162,10 @@ def parse_arguments(**kwargs) -> argparse.Namespace:
     parser.add_argument(
         '--ignore-classifications', type=str, nargs='+',
         help='Ignore documents with these classifications',
-        default=['Meeting Notes', 'Operational Event', 'Changelog', 'Other']
-    )
+        default=['Meeting Notes', 'Operational Event', 'Changelog'])
+    parser.add_argument(
+        '--ignore-pattern', type=str,
+        help='Ignore documents by title with this regex pattern',)
     parser.add_argument(
         '--postgres-url', help='The PostgreSQL URL',
         default=os.environ.get('POSTGRES_URL'))
@@ -173,6 +192,7 @@ def main():
         args.cutoff,
         args.space,
         args.ignore_classifications,
+        args.ignore_pattern,
         args.skip
     ).run()
 

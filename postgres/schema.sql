@@ -1,13 +1,14 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE documents (
-  document_id UUID NOT NULL PRIMARY KEY,
-  created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  modified_at TIMESTAMP WITH TIME ZONE,
-  title       TEXT,
-  url         TEXT,
-  labels      TEXT,
-  content     TEXT NOT NULL
+  document_id     UUID NOT NULL PRIMARY KEY,
+  created_at      TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  modified_at     TIMESTAMP WITH TIME ZONE,
+  title           TEXT,
+  url             TEXT,
+  labels          TEXT,
+  classification  TEXT,
+  content         TEXT NOT NULL
 );
 
 CREATE UNIQUE INDEX ON documents (url);

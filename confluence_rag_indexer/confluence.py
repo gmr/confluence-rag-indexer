@@ -102,7 +102,7 @@ class Client:
             f'_export_view&include-labels=true')
         response.raise_for_status()
         data = response.json()
-        labels = ''
+        labels = None
         if data['labels']['results']:
             labels = ', '.join(
                 [label['name'] for label in data['labels']['results']])
@@ -112,6 +112,7 @@ class Client:
             last_modified_at=datetime.datetime.fromisoformat(
                 data['version']['createdAt']),
             labels=labels,
+            classification=None,
             content=self._convert_to_markdown(
                 data['body']['anonymous_export_view']['value']))
 
