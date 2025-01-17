@@ -24,6 +24,7 @@ Analyze this text and classify it as one of the following categories:
     - Technical Documentation
     - User Documentation
     - Policy Documentation
+    - Changelog
     - Other
 
 Do not return anything other than the category.
@@ -45,7 +46,8 @@ class Indexer:
                  postgres_url: str,
                  cutoff: datetime.datetime,
                  spaces: list[str],
-                 ignore_classifications: list[str]):
+                 ignore_classifications: list[str],
+                 skip: int):
         self.confluence = confluence.Client(
             confluence_domain, confluence_email, confluence_api_key)
         self.cuttoff = cutoff
@@ -54,24 +56,35 @@ class Indexer:
         self.rag = pgvector_rag.RAG(
             anthropic_api_key, openai_api_key, postgres_url)
         self.spaces = spaces
+        self.skip = skip
 
     def run(self):
         for space in self.spaces:
+            count = 0
             for document in self.confluence.get_pages(space):
+                count += 1
+                if count <= self.skip:
+                    LOGGER.info('Skipping "%s"', document.title)
+                    continue
                 for ignore in self.ignore_classifications:
                     if ignore in document.title:
                         LOGGER.info('Skipping "%s"', document.title)
                         continue
-                response = self.openai.chat.completions.create(
-                    messages = [
-                        {
-                            'role': 'user',
-                            'content': CLASSIFY_PROMPT.format(
-                                content=document.content)
-                        }
-                    ],
-                    model='gpt-4o')
-                category = response.choices[0].message.content
+                try:
+                    response = self.openai.chat.completions.create(
+                        messages = [
+                            {
+                                'role': 'user',
+                                'content': CLASSIFY_PROMPT.format(
+                                    content=document.content)
+                            }
+                        ],
+                        model='gpt-4o')
+                except openai.BadRequestError as err:
+                    LOGGER.error('Error classifying document: %s', err)
+                    category = 'Other'
+                else:
+                    category = response.choices[0].message.content
 
                 if category in self.ignore_classifications:
                     LOGGER.info('Ignoring "%s": %s', document.title, category)
@@ -132,11 +145,13 @@ def parse_arguments(**kwargs) -> argparse.Namespace:
     parser.add_argument(
         '--ignore-classifications', type=str, nargs='+',
         help='Ignore documents with these classifications',
-        default=['Meeting Notes', 'Operational Event', 'Other']
+        default=['Meeting Notes', 'Operational Event', 'Changelog', 'Other']
     )
     parser.add_argument(
         '--postgres-url', help='The PostgreSQL URL',
         default=os.environ.get('POSTGRES_URL'))
+    parser.add_argument(
+        '--skip', type=int, help='Skip the first N documents', default=0)
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('space', nargs='*', help='The Confluence space(s)')
     return parser.parse_args(**kwargs)
@@ -157,7 +172,8 @@ def main():
         args.postgres_url,
         args.cutoff,
         args.space,
-        args.ignore_classifications
+        args.ignore_classifications,
+        args.skip
     ).run()
 
 if __name__ == '__main__':
