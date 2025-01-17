@@ -1,0 +1,8 @@
+.coverage
+.env
+.ropeproject
+.ruff_cache
+.venv
+__pycache__
+*.egg-info
+dist
