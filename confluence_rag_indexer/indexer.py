@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 
+import anthropic
 import openai
 import pgvector_rag
 
@@ -39,6 +40,7 @@ class Indexer:
                  confluence_domain: str,
                  confluence_email: str,
                  confluence_api_key: str,
+                 anthropic_api_key: str,
                  openai_api_key: str,
                  postgres_url: str,
                  cutoff: datetime.datetime,
@@ -49,7 +51,8 @@ class Indexer:
         self.cuttoff = cutoff
         self.ignore_classifications = ignore_classifications
         self.openai = openai.Client(api_key=openai_api_key)
-        self.rag = pgvector_rag.RAG(openai_api_key, postgres_url)
+        self.rag = pgvector_rag.RAG(
+            anthropic_api_key, openai_api_key, postgres_url)
         self.spaces = spaces
 
     def run(self):
@@ -121,6 +124,9 @@ def parse_arguments(**kwargs) -> argparse.Namespace:
         '--confluence-api-key', help='The Confluence API key',
         default=os.environ.get('CONFLUENCE_API_KEY'))
     parser.add_argument(
+        '--anthropic-api-key', help='The OpenAI API key',
+        default=os.environ.get('ANTHROPIC_API_KEY'))
+    parser.add_argument(
         '--openai-api-key', help='The OpenAI API key',
         default=os.environ.get('OPENAI_API_KEY'))
     parser.add_argument(
@@ -146,6 +152,7 @@ def main():
         args.confluence_domain,
         args.confluence_email,
         args.confluence_api_key,
+        args.anthropic_api_key,
         args.openai_api_key,
         args.postgres_url,
         args.cutoff,

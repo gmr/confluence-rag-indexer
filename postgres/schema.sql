@@ -6,9 +6,11 @@ CREATE TABLE documents (
   modified_at TIMESTAMP WITH TIME ZONE,
   title       TEXT,
   url         TEXT,
-  metadata    TEXT,
+  labels      TEXT,
   content     TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX ON documents (url);
 
 CREATE TABLE chunks (
   document_id UUID NOT NULL,

@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "httpx",
     "markdownify",
-    "pgvector-rag"
+    "pgvector-rag>=0.2.0"
 ]
 
 [project.optional-dependencies]
