@@ -3,9 +3,7 @@ import datetime
 import logging
 import os
 import re
-import typing
 
-import anthropic
 import openai
 import pgvector_rag
 
@@ -58,7 +56,7 @@ class Indexer:
                  cutoff: datetime.datetime,
                  spaces: list[str],
                  ignore_classifications: list[str],
-                 ignore_pattern: typing.Optional[str],
+                 ignore_pattern: str | None,
                  skip: int):
         self.confluence = confluence.Client(
             confluence_domain, confluence_email, confluence_api_key)
@@ -101,7 +99,7 @@ class Indexer:
                         model='gpt-4o')
                 except openai.BadRequestError as err:
                     LOGGER.error('Error classifying document: %s', err)
-                    category = 'Other'
+                    document.classification = 'Other'
                 else:
                     document.classification = \
                         str(response.choices[0].message.content)
@@ -178,7 +176,9 @@ def parse_arguments(**kwargs) -> argparse.Namespace:
 
 def main():
     args = parse_arguments()
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format='%(message)s')
     for logger in ['httpx', 'httpcore']:
         logging.getLogger(logger).setLevel(logging.WARNING)
 
