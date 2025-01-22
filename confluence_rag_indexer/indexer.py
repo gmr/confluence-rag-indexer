@@ -18,9 +18,12 @@ CLASSIFY_PROMPT = """\
 <instructions>
 Analyze this text and classify it as one of the following categories:
 
+    - Blog Post
     - Changelog
     - Compliance Documentation
+    - Customer Feedback
     - Employee Benefits Documentation
+    - Employee Feedback
     - Employee Handbook
     - How-To Documentation
     - Job Description
@@ -29,14 +32,16 @@ Analyze this text and classify it as one of the following categories:
     - Operational Event
     - Operational Plan
     - Organizational Plan
+    - Other
     - Policy Documentation
     - Project Documentation
+    - Retrospective
     - Technical Documentation
     - User Documentation
     - Vendor Information
-    - Other
 
 Do not return anything other than the category.
+Do not create your own categories.
 </instructions>
 <content>
 {content}
@@ -72,6 +77,7 @@ class Indexer:
 
     def run(self):
         for space in self.spaces:
+            LOGGER.info('Processing "%s"', space)
             count = 0
             for document in self.confluence.get_pages(space):
                 count += 1
